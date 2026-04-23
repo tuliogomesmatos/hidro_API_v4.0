@@ -172,11 +172,22 @@ summary::before { content: '▶  '; font-size: 0.55rem; }
 details[open] summary::before { content: '▼  '; }
 
 /* LEAFLET */
+/* Zoom control - reposicionado para bottom-right para nao colidir com toolbar */
+.leaflet-top.leaflet-right { top: auto !important; bottom: 42px !important; }
+.leaflet-control-zoom { margin-right: 12px !important; margin-bottom: 0 !important; border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important; }
 .leaflet-control-zoom a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
 .leaflet-control-zoom a:hover { background: var(--surface2) !important; color: var(--accent) !important; }
 .custom-marker-pin { width: 16px; height: 16px; border-radius: 50% 50% 50% 0; background: var(--accent); border: 2px solid #fff; transform: rotate(-45deg); box-shadow: 0 0 10px rgba(0,212,255,0.6); }
 .custom-marker-station { width: 10px; height: 10px; border-radius: 50%; background: var(--success); border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 8px rgba(0,201,122,0.5); }
+/* Tooltip */
 .leaflet-tooltip { background: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--text) !important; font-family: var(--mono) !important; font-size: 0.7rem !important; border-radius: 6px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; padding: 5px 9px !important; }
+.leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { border-top-color: var(--border) !important; border-bottom-color: var(--border) !important; border-left-color: var(--border) !important; border-right-color: var(--border) !important; }
+/* Popup - corrige quadrado preto e estiliza coerente com tema */
+.leaflet-popup-content-wrapper { background: var(--surface) !important; color: var(--text) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; box-shadow: 0 6px 20px rgba(0,0,0,0.6) !important; }
+.leaflet-popup-content { margin: 10px 14px !important; line-height: 1.5 !important; }
+.leaflet-popup-tip { background: var(--surface) !important; border: 1px solid var(--border) !important; box-shadow: 0 4px 8px rgba(0,0,0,0.5) !important; }
+.leaflet-popup-close-button { color: var(--muted) !important; padding: 6px 8px 0 0 !important; font-size: 18px !important; }
+.leaflet-popup-close-button:hover { color: var(--danger) !important; }
 
 @media (max-width: 700px) {
   .panel { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); }
@@ -318,7 +329,7 @@ details[open] summary::before { content: '▼  '; }
         <div class="layer-row" onclick="toggleLayer('hidro')">
           <div class="layer-toggle on" id="toggle-hidro"></div>
           <div class="layer-dot" style="background:#4cc9f0;height:3px;width:10px;border-radius:0;"></div>
-          <span>Hidrografia</span>
+          <span>Drenagem</span>
           <span class="layer-status" id="st-hidro" style="color:var(--warn);">…</span>
         </div>
         <div class="layer-row" onclick="toggleLayer('estacoes')">
@@ -470,10 +481,6 @@ function toggleLayer(id) {
   if (id === 'estacoes') { toggleStations(); return; }
   s.visible = !s.visible;
   if (s.layer) { s.visible ? s.layer.addTo(map) : map.removeLayer(s.layer); }
-  // Controlar N2 junto com hidro
-  if (id === 'hidro' && hidroN2Layer) {
-    s.visible ? hidroN2Layer.addTo(map) : map.removeLayer(hidroN2Layer);
-  }
   syncToggle(id, s.visible);
 }
 function toggleLayerPanel() {
@@ -505,32 +512,38 @@ fetch(BASE_URL + '/bacias.geojson')
       style: () => ({ color:'#00b4d8', weight:1.6, opacity:0.85, fillColor:'#0096c7', fillOpacity:0.10 }),
       onEachFeature: (f, l) => {
         const p = f.properties || {};
-        // Busca por qualquer campo que pareça ser nome
+        // Busca por qualquer campo que pareca ser nome
         const nome = p.bacias || p.Bacias || p.BACIAS
                   || p.nome || p.NOME || p.name || p.NAME
                   || p.NM_BACIA || p.NM_SUB_BAC || p.NM_SUB_BA1
                   || p.SUB_BACIA || p.SUBBACIA || p.Sub_Bacia
                   || p.BACIA || p.Bacia || p.nm_bacia
                   || p.NM_UH || p.NM_RH || p.DESCRICAO
-                  || '(sem nome)';
+                  || null;
 
-        // Tooltip no hover
-        l.bindTooltip(nome, { sticky: true, direction: 'top' });
+        // Tooltip no hover - SO se houver nome real
+        if (nome) {
+          l.bindTooltip(nome, { sticky: true, direction: 'top' });
+        }
 
-        // Popup no clique com mais detalhes
-        let popupHtml = `<div style="font-family:monospace;font-size:0.75rem;">`;
-        popupHtml += `<strong style="color:#0077b6;font-size:0.85rem;">${nome}</strong><br>`;
+        // Popup no clique com detalhes
+        const titulo = nome || 'Bacia (sem designacao)';
+        let popupHtml = `<div style="font-family:var(--mono,monospace);font-size:0.72rem;min-width:180px;">`;
+        popupHtml += `<div style="color:var(--accent3,#48cae4);font-family:var(--sans,sans-serif);font-weight:700;font-size:0.9rem;margin-bottom:6px;border-bottom:1px solid rgba(0,212,255,0.2);padding-bottom:4px;">${titulo}</div>`;
 
-        // Mostrar alguns campos úteis se existirem
+        // Mostrar campos uteis se existirem
         const camposInteressantes = ['NM_BACIA','NM_SUB_BAC','AREA_KM2','AREA','COD_BACIA','CODIGO','NM_UH','NM_RH'];
         let extras = '';
         for (const campo of camposInteressantes) {
           if (p[campo] !== undefined && p[campo] !== null && p[campo] !== '' && p[campo] !== nome) {
-            extras += `<span style="color:#5a7a9a;">${campo}:</span> ${p[campo]}<br>`;
+            extras += `<div style="margin:2px 0;"><span style="color:var(--muted,#5a7a9a);">${campo}:</span> <span style="color:var(--text,#dceaf8);">${p[campo]}</span></div>`;
           }
         }
+        if (!extras) {
+          extras = `<div style="color:var(--muted,#5a7a9a);font-style:italic;font-size:0.68rem;">Sem atributos adicionais</div>`;
+        }
         popupHtml += extras + `</div>`;
-        l.bindPopup(popupHtml);
+        l.bindPopup(popupHtml, { maxWidth: 260, className: 'popup-hidroapi' });
       }
     }).addTo(map);
     setLayerStatus('bacias', '✓ ok', true);
@@ -538,66 +551,20 @@ fetch(BASE_URL + '/bacias.geojson')
   })
   .catch(e => setLayerStatus('bacias', '✗ ' + e.message, false));
 
-// GeoJSON — Hidrografia em dois níveis de zoom
-let hidroN2Carregado = false;
-
-function carregarHidro(url, estilo, nome) {
-  return fetch(url)
-    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(gj => {
-      const layer = L.geoJSON(gj, {
-        style: () => estilo,
-        onEachFeature: (f, l) => {
-          const p = f.properties || {};
-          const n = p.nome || p.name || p.NAME || p.NOME || p.NM_RIO || p.NM_CURSO_D || '';
-          if (n) l.bindTooltip(n, { sticky: true });
-        }
-      });
-      return layer;
+// GeoJSON — Drenagem (derivada do Flow Accumulation vetorizado)
+fetch(BASE_URL + '/drenagem.geojson')
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(gj => {
+    const layer = L.geoJSON(gj, {
+      style: () => ({ color: '#4cc9f0', weight: 1.2, opacity: 0.85, fillOpacity: 0 })
+      // Sem tooltip/popup: drenagem nao tem nomes de rios
     });
-}
-
-// N1 — rios principais, carrega sempre
-carregarHidro(
-  BASE_URL + '/hidro_N1.geojson',
-  { color: '#4cc9f0', weight: 1.4, opacity: 0.9, fillOpacity: 0 },
-  'hidro N1'
-).then(layer => {
-  layerState.hidro.layer = layer;
-  layer.addTo(map);
-  setLayerStatus('hidro', '✓ ok', true);
-  reordenarCamadas();
-}).catch(e => {
-  // Tentar nome antigo (hidro.geojson) para compatibilidade
-  carregarHidro(
-    BASE_URL + '/hidro.geojson',
-    { color: '#4cc9f0', weight: 1.1, opacity: 0.9, fillOpacity: 0 },
-    'hidro'
-  ).then(layer => {
     layerState.hidro.layer = layer;
     layer.addTo(map);
     setLayerStatus('hidro', '✓ ok', true);
     reordenarCamadas();
-  }).catch(() => setLayerStatus('hidro', '✗ ' + e.message, false));
-});
-
-// N2 — rios médios, carrega apenas quando zoom >= 9
-let hidroN2Layer = null;
-map.on('zoomend', () => {
-  if (!layerState.hidro.visible) return;
-  if (map.getZoom() >= 9 && !hidroN2Carregado) {
-    hidroN2Carregado = true;
-    carregarHidro(
-      BASE_URL + '/hidro_N2.geojson',
-      { color: '#90e0ef', weight: 0.8, opacity: 0.7, fillOpacity: 0 },
-      'hidro N2'
-    ).then(layer => {
-      hidroN2Layer = layer;
-      if (layerState.hidro.visible) layer.addTo(map);
-      reordenarCamadas();
-    }).catch(() => {}); // silencioso se N2 não existir
-  }
-});
+  })
+  .catch(e => setLayerStatus('hidro', '✗ ' + e.message, false));
 
 /* ══════════════════════════════════════════════════════
    RASTERS (geotiff.js) — acum + direção de fluxo
