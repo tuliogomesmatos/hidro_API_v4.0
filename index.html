@@ -552,7 +552,7 @@ fetch(BASE_URL + '/bacias.geojson')
   .catch(e => setLayerStatus('bacias', '✗ ' + e.message, false));
 
 // GeoJSON — Drenagem (derivada do Flow Accumulation vetorizado)
-fetch(BASE_URL + '/drenagem.geojson')
+fetch(BASE_URL + '/github_ready/drenagem.geojson')
   .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
   .then(gj => {
     const layer = L.geoJSON(gj, {
